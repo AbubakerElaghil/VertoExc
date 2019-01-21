@@ -1,11 +1,12 @@
-package vertoexcersice.alaqel.com.vertoexcersice;
+package vertoexcersice.alaqel.com.vertoexcersice.Activities;
 
+import android.arch.lifecycle.Observer;
+import android.arch.lifecycle.ViewModelProviders;
 import android.content.DialogInterface;
-import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
-import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
@@ -14,16 +15,18 @@ import android.os.Bundle;
 import android.widget.Toast;
 
 import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResponse;
-import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+
+import vertoexcersice.alaqel.com.vertoexcersice.R;
+import vertoexcersice.alaqel.com.vertoexcersice.Respository.Response.ResponseObject;
+import vertoexcersice.alaqel.com.vertoexcersice.ViewModels.MainViewModel;
 
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 
@@ -33,21 +36,44 @@ public class MainActivity extends AppCompatActivity {
 
   final   int permsRequestCODE = 200;
 
+    MainViewModel  mainViewModel;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-
-        if ( checkPermission()) {
+        initViewModel();
+        initViews();
+      /*  if ( checkPermission()) {
             checkLocationSettings();
-
         } else {
-
             requestPermission();
-
         }
+*/
+        //for test now
+        getDataFromServer();
 
+    }
+
+    private void initViews() {
+
+    }
+
+    private void initViewModel() {
+        mainViewModel = ViewModelProviders.of(this).get(MainViewModel.class);
+
+    }
+
+    private void getDataFromServer() {
+
+        mainViewModel.articlesLists.observe(this, new Observer<ResponseObject>() {
+            @Override
+            public void onChanged(@Nullable ResponseObject responseObject) {
+
+
+
+            }
+        });
+        mainViewModel.getArticles("37.786971","122.399677" );
     }
 
 
@@ -66,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
                    getLocationRequest();
 
                 } catch (ApiException exception) {
-                    switch (exception.getStatusCode()) {
+                   /* switch (exception.getStatusCode()) {
                         case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
                             // Location settings are not satisfied. But could be fixed by showing the
                             // user a dialog.
@@ -89,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
                             // settings so we won't show the dialog.
 
                             break;
-                    }
+                    }*/
                 }
             }
         });
