@@ -60,14 +60,16 @@ public class AppRepository {
     }
 
     public void getArticles(String lat, String longt, MutableLiveData<ResponseObject> articlesLists) {
-          String url = "https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=10000&gscoord="+lat+"|-"+
+          String url = "https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=10000&gscoord="+lat+"|"+
                   longt+"&gslimit=50&format=json";
         apiService.getResponse(url).enqueue(new ResponseCallBacks(articlesLists));
+
     }
 
     public void getPageImages(String pageId, MutableLiveData<ResponseObject> pageImageLists) {
+
         String url = "https://en.wikipedia.org/w/api.php?action=query&prop=images&pageids="+pageId+"&format=json";
-        apiService.getResponse(url).enqueue(new ResponseCallBacks(pageImageLists));
+        apiService.getResponse(url).enqueue(new ResponseCallBacks(pageImageLists,pageId));
 
     }
 
@@ -76,14 +78,15 @@ public class AppRepository {
 
 
         MutableLiveData<ResponseObject> data;
-        private String currentListId;
+        private String pageId;
 
         public ResponseCallBacks(MutableLiveData<ResponseObject> data) {
             this.data = data;
+
         }
-        public ResponseCallBacks(MutableLiveData<ResponseObject> data, String currentListId) {
+        public ResponseCallBacks(MutableLiveData<ResponseObject> data, String pageId) {
             this.data = data;
-            this.currentListId= currentListId;
+            this.pageId= pageId;
         }
 
         @Override
@@ -104,7 +107,11 @@ public class AppRepository {
 
 
         private void HandleResponse(ResponseObject responseObject) {
-
+                if(responseObject!=null){
+                    if(pageId!=null){
+                        responseObject.setPageId(pageId);
+                    }
+                }
             data.setValue(responseObject);
         }
     }

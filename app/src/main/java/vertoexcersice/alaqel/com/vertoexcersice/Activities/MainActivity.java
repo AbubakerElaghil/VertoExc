@@ -1,11 +1,18 @@
 package vertoexcersice.alaqel.com.vertoexcersice.Activities;
 
+import android.Manifest;
+import android.app.Activity;
+import android.arch.lifecycle.MutableLiveData;
 import android.arch.lifecycle.Observer;
 import android.arch.lifecycle.ViewModelProviders;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -13,39 +20,61 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResponse;
+import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import vertoexcersice.alaqel.com.vertoexcersice.R;
 import vertoexcersice.alaqel.com.vertoexcersice.Respository.Response.GeoSearch;
 import vertoexcersice.alaqel.com.vertoexcersice.Respository.Response.Pages;
 import vertoexcersice.alaqel.com.vertoexcersice.Respository.Response.ResponseObject;
 import vertoexcersice.alaqel.com.vertoexcersice.ViewModels.MainViewModel;
+import vertoexcersice.alaqel.com.vertoexcersice.utilities.ConnectionDetector;
 
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends BaseActivity {
 
-    private FusedLocationProviderClient mFusedLocationClient;
+    public  FusedLocationProviderClient mFusedLocationClient;
+    private LocationRequest locationRequest;
+    private LocationCallback locationCallback;
+
 
     final int permsRequestCODE = 200;
+    protected static final int REQUEST_CHECK_SETTINGS = 0x1;
 
     MainViewModel mainViewModel;
-    Map<String,Integer> imagesCounterMap = new HashMap<>();
+    HashMap<String, Integer> imagesCounterMap = new HashMap<>();
+
+    LinearLayout dataLayout;
+    String TAG = "SendingRqst";
+    int geoSearchListSize = 0;
+
+    int RequestCounter = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,89 +82,121 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         initViewModel();
         initViews();
-      /*  if ( checkPermission()) {
+        if (checkPermission()) {
             checkLocationSettings();
         } else {
             requestPermission();
         }
-*/
-        //for test now
-        getArticles();
-
     }
 
     private void initViews() {
-
+        dataLayout = (LinearLayout) findViewById(R.id.data_layout);
     }
 
     private void initViewModel() {
         mainViewModel = ViewModelProviders.of(this).get(MainViewModel.class);
-
     }
 
-    private void getArticles() {
+    private void getArticles(Double Lat, Double longt) {
+        if(ConnectionDetector.isConnectingToInternet(MainActivity.this)){
 
+            if(dataLayout.getChildCount()>0){
+                dataLayout.removeAllViews();
+            }
+        ShowProgress("Getting Data", "Loading...", MainActivity.this);
         mainViewModel.articlesLists.observe(this, new Observer<ResponseObject>() {
             @Override
             public void onChanged(@Nullable ResponseObject responseObject) {
 
                 if (responseObject != null) {
-                    List<GeoSearch>  geoSearchList = responseObject.getQuery().getGeoSearchList();
+                    List<GeoSearch> geoSearchList = responseObject.getQuery().getGeoSearchList();
                     if (geoSearchList != null && geoSearchList.size() > 0) {
+                        geoSearchListSize = geoSearchList.size();
                         for (int i = 0; i < geoSearchList.size(); i++) {
                             getPageImages(geoSearchList.get(i).getPageid());
-                            Log.e("geoSearch", geoSearchList.get(i).getPageid());
                         }
-                            /*
-                        for (String key :imagesCounterMap.keySet()) {
-                            Log.e("image Title",key);
-                            Log.e("image Title",imagesCounterMap.get(key).toString());
-                            Log.e("image Title","-------------");
 
+                    } else {
+                        HideProgress();
+                        Toast.makeText(MainActivity.this, "No Articles Found!", Toast.LENGTH_SHORT).show();
 
-
-                        }*/
                     }
+                } else {
+                    HideProgress();
+                    Toast.makeText(MainActivity.this, "Error Happened!", Toast.LENGTH_SHORT).show();
                 }
-
 
             }
         });
-        mainViewModel.getArticles("37.786971", "122.399677");
+        mainViewModel.getArticles(Lat.toString(), longt.toString());
+
+
+        }
+        else {
+            Toast.makeText(this, "No Internet Connection!", Toast.LENGTH_SHORT).show();
+        }
     }
 
 
     private void getPageImages(String pageId) {
-        mainViewModel.pageImageLists.observe(this, new Observer<ResponseObject>() {
+        MutableLiveData<ResponseObject> pageImageLists = new MutableLiveData<>();
+        pageImageLists.observe(this, new Observer<ResponseObject>() {
             @Override
             public void onChanged(@Nullable ResponseObject responseObject) {
-                Map<String, Pages> result = responseObject.getQuery().getResult();
-                if (result != null && result.size() > 0) {
-                    for(String key: result.keySet()){
-                        Log.e("Key",key);
-                         Pages page =  result.get(key);
+                RequestCounter++;
+                if (responseObject != null) {
+                    Map<Integer, Pages> result = responseObject.getQuery().getResult();
+                    if (result != null && result.size() > 0) {
+
+                        Pages page = result.get(Integer.parseInt(responseObject.getPageId()));
                         for (int i = 0; i < page.getImagesList().size(); i++) {
-                            String imageTitle =  page.getImagesList().get(i).getTitle();
-                            if(imagesCounterMap.containsKey(imageTitle)){
+                            String imageTitle = page.getImagesList().get(i).getTitle();
+                            if (imagesCounterMap.containsKey(imageTitle)) {
                                 int counter = imagesCounterMap.get(imageTitle);
                                 counter++;
-                                imagesCounterMap.put(imageTitle,counter);
-                            }else {
-                                imagesCounterMap.put(imageTitle,1);
+                                imagesCounterMap.put(imageTitle, counter);
+                            } else {
+                                imagesCounterMap.put(imageTitle, 1);
                             }
                         }
                     }
                 }
+                if (RequestCounter == geoSearchListSize) {
+                    HideProgress();
+                    HashMap<String, Integer> sortedHashMap = sortByValue(imagesCounterMap);
+                    for (String key : sortedHashMap.keySet()) {
+                        int noOfSimilarity = imagesCounterMap.get(key);
+                        if (noOfSimilarity != 1) {
+                            final LinearLayout rowLayout = (LinearLayout) getLayoutInflater().inflate(R.layout.row_layout, null);
+                            TextView imageTitle = (TextView) rowLayout.findViewById(R.id.image_title);
+                            TextView noOfSimili = (TextView) rowLayout.findViewById(R.id.no_similar);
+
+                            imageTitle.setText(key);
+                            noOfSimili.setText(noOfSimilarity + "");
+                            dataLayout.addView(rowLayout);
+                        }
+                    }
+                }
+
+
             }
         });
-        mainViewModel.getPageImages(pageId);
+        mainViewModel.getPageImages(pageId, pageImageLists);
     }
+
+
+
+
+    //region LocationSection
 
     private void checkLocationSettings() {
         LocationRequest locationRequest = new LocationRequest();
+        locationRequest.setInterval(5000);
+        locationRequest.setFastestInterval(2000);
         locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
                 .addLocationRequest(locationRequest);
+        builder.setAlwaysShow(true);
 
         Task<LocationSettingsResponse> result = LocationServices.getSettingsClient(this).checkLocationSettings(builder.build());
         result.addOnCompleteListener(new OnCompleteListener<LocationSettingsResponse>() {
@@ -146,51 +207,59 @@ public class MainActivity extends AppCompatActivity {
                     getLocationRequest();
 
                 } catch (ApiException exception) {
-                   /* switch (exception.getStatusCode()) {
+                    switch (exception.getStatusCode()) {
                         case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
-                            // Location settings are not satisfied. But could be fixed by showing the
-                            // user a dialog.
                             try {
-                                // Cast to a resolvable exception.
+
                                 ResolvableApiException resolvable = (ResolvableApiException) exception;
-                                // Show the dialog by calling startResolutionForResult(),
-                                // and check the result in onActivityResult().
-                                resolvable.startResolutionForResult(
-                                        OuterClass.this,
-                                        REQUEST_CHECK_SETTINGS);
+                                resolvable.startResolutionForResult(MainActivity.this, REQUEST_CHECK_SETTINGS);
                             } catch (IntentSender.SendIntentException e) {
-                                // Ignore the error.
+
                             } catch (ClassCastException e) {
-                                // Ignore, should be an impossible error.
+
                             }
                             break;
                         case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
                             // Location settings are not satisfied. However, we have no way to fix the
                             // settings so we won't show the dialog.
-
                             break;
-                    }*/
+                    }
                 }
             }
         });
     }
 
-
-    private boolean checkPermission() {
-        int result = ContextCompat.checkSelfPermission(getApplicationContext(), ACCESS_COARSE_LOCATION);
-
-        return result == PackageManager.PERMISSION_GRANTED;
-    }
-
     private void requestPermission() {
-
-        ActivityCompat.requestPermissions(this, new String[]{ACCESS_COARSE_LOCATION}, permsRequestCODE);
-
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, permsRequestCODE);
     }
-
 
     private void getLocationRequest() {
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        locationRequest = LocationRequest.create();
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        locationRequest.setInterval(20 * 1000);
+        locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                Log.e("On LOcation Update","On LOcation Update");
+
+                if (locationResult == null) {
+                    return;
+                }
+                for (Location location : locationResult.getLocations()) {
+                    if (location != null) {
+                        Log.e("On LOcation Update","On LOcation Update");
+                        if (mFusedLocationClient != null) {
+                            mFusedLocationClient.removeLocationUpdates(locationCallback);
+                        }
+                        getArticles(location.getLatitude(), location.getLongitude());
+
+                    }
+                }
+            }
+        };
+
         getDeviceLocation();
     }
 
@@ -201,13 +270,18 @@ public class MainActivity extends AppCompatActivity {
                     public void onSuccess(Location location) {
                         // Got last known location. In some rare situations this can be null.
                         if (location != null) {
+
+                            getArticles(location.getLatitude(), location.getLongitude());
                             // Logic to handle location object
                         } else {
-
+                            mFusedLocationClient.requestLocationUpdates(locationRequest,locationCallback, Looper.myLooper());
+                            Toast.makeText(MainActivity.this, "Cannot Find Location!, Will try Again!", Toast.LENGTH_SHORT).show();
                         }
                     }
 
                 });
+
+
     }
 
 
@@ -250,6 +324,31 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        switch (requestCode) {
+// Check for the integer request code originally supplied to startResolutionForResult().
+            case REQUEST_CHECK_SETTINGS:
+                switch (resultCode) {
+                    case Activity.RESULT_OK:
+                        Handler handler = new Handler();
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                getLocationRequest();
+                            }
+                        }, 2000);
+
+                        break;
+                    case Activity.RESULT_CANCELED:
+                        checkLocationSettings();//keep asking if imp or do whatever
+                        break;
+                }
+                break;
+        }
+    }
+
+
     private void showMessageOKCancel(String message, DialogInterface.OnClickListener okListener) {
         new AlertDialog.Builder(MainActivity.this)
                 .setMessage(message)
@@ -258,5 +357,6 @@ public class MainActivity extends AppCompatActivity {
                 .create()
                 .show();
     }
+//endregion
 
 }

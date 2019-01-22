@@ -10,7 +10,7 @@ public class Query {
 
     @SerializedName("pages")
     @Expose
-    private Map<String, Pages> result;
+    private Map<Integer, Pages> result;
 
 
     @SerializedName("geosearch")
@@ -20,7 +20,7 @@ public class Query {
         return geoSearchList;
     }
 
-    public Map<String, Pages> getResult() {
+    public Map<Integer, Pages> getResult() {
         return result;
     }
 }

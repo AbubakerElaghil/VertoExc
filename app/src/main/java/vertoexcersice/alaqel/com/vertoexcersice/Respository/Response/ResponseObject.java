@@ -16,4 +16,14 @@ public class ResponseObject   {
     public Query getQuery() {
         return query;
     }
+
+    String pageId;
+
+    public String getPageId() {
+        return pageId;
+    }
+
+    public void setPageId(String pageId) {
+        this.pageId = pageId;
+    }
 }
