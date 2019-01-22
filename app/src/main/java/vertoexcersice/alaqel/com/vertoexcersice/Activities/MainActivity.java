@@ -12,6 +12,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.google.android.gms.common.api.ApiException;
@@ -24,7 +25,14 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import vertoexcersice.alaqel.com.vertoexcersice.R;
+import vertoexcersice.alaqel.com.vertoexcersice.Respository.Response.GeoSearch;
+import vertoexcersice.alaqel.com.vertoexcersice.Respository.Response.Pages;
 import vertoexcersice.alaqel.com.vertoexcersice.Respository.Response.ResponseObject;
 import vertoexcersice.alaqel.com.vertoexcersice.ViewModels.MainViewModel;
 
@@ -34,9 +42,11 @@ public class MainActivity extends AppCompatActivity {
 
     private FusedLocationProviderClient mFusedLocationClient;
 
-  final   int permsRequestCODE = 200;
+    final int permsRequestCODE = 200;
 
-    MainViewModel  mainViewModel;
+    MainViewModel mainViewModel;
+    Map<String,Integer> imagesCounterMap = new HashMap<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -50,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
         }
 */
         //for test now
-        getDataFromServer();
+        getArticles();
 
     }
 
@@ -63,22 +73,66 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void getDataFromServer() {
+    private void getArticles() {
 
         mainViewModel.articlesLists.observe(this, new Observer<ResponseObject>() {
             @Override
             public void onChanged(@Nullable ResponseObject responseObject) {
 
+                if (responseObject != null) {
+                    List<GeoSearch>  geoSearchList = responseObject.getQuery().getGeoSearchList();
+                    if (geoSearchList != null && geoSearchList.size() > 0) {
+                        for (int i = 0; i < geoSearchList.size(); i++) {
+                            getPageImages(geoSearchList.get(i).getPageid());
+                            Log.e("geoSearch", geoSearchList.get(i).getPageid());
+                        }
+                            /*
+                        for (String key :imagesCounterMap.keySet()) {
+                            Log.e("image Title",key);
+                            Log.e("image Title",imagesCounterMap.get(key).toString());
+                            Log.e("image Title","-------------");
+
+
+
+                        }*/
+                    }
+                }
 
 
             }
         });
-        mainViewModel.getArticles("37.786971","122.399677" );
+        mainViewModel.getArticles("37.786971", "122.399677");
     }
 
 
+    private void getPageImages(String pageId) {
+        mainViewModel.pageImageLists.observe(this, new Observer<ResponseObject>() {
+            @Override
+            public void onChanged(@Nullable ResponseObject responseObject) {
+                Map<String, Pages> result = responseObject.getQuery().getResult();
+                if (result != null && result.size() > 0) {
+                    for(String key: result.keySet()){
+                        Log.e("Key",key);
+                         Pages page =  result.get(key);
+                        for (int i = 0; i < page.getImagesList().size(); i++) {
+                            String imageTitle =  page.getImagesList().get(i).getTitle();
+                            if(imagesCounterMap.containsKey(imageTitle)){
+                                int counter = imagesCounterMap.get(imageTitle);
+                                counter++;
+                                imagesCounterMap.put(imageTitle,counter);
+                            }else {
+                                imagesCounterMap.put(imageTitle,1);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        mainViewModel.getPageImages(pageId);
+    }
+
     private void checkLocationSettings() {
-        LocationRequest locationRequest   = new LocationRequest();
+        LocationRequest locationRequest = new LocationRequest();
         locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
                 .addLocationRequest(locationRequest);
@@ -89,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
             public void onComplete(Task<LocationSettingsResponse> task) {
                 try {
                     LocationSettingsResponse response = task.getResult(ApiException.class);
-                   getLocationRequest();
+                    getLocationRequest();
 
                 } catch (ApiException exception) {
                    /* switch (exception.getStatusCode()) {
@@ -125,17 +179,17 @@ public class MainActivity extends AppCompatActivity {
     private boolean checkPermission() {
         int result = ContextCompat.checkSelfPermission(getApplicationContext(), ACCESS_COARSE_LOCATION);
 
-        return result == PackageManager.PERMISSION_GRANTED  ;
+        return result == PackageManager.PERMISSION_GRANTED;
     }
 
     private void requestPermission() {
 
-        ActivityCompat.requestPermissions(this, new String[]{ACCESS_COARSE_LOCATION }, permsRequestCODE);
+        ActivityCompat.requestPermissions(this, new String[]{ACCESS_COARSE_LOCATION}, permsRequestCODE);
 
     }
 
 
-    private void getLocationRequest(){
+    private void getLocationRequest() {
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         getDeviceLocation();
     }
@@ -148,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
                         // Got last known location. In some rare situations this can be null.
                         if (location != null) {
                             // Logic to handle location object
-                        }else {
+                        } else {
 
                         }
                     }
@@ -157,18 +211,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
     @Override
-    public void onRequestPermissionsResult(int permsRequestCode, String[] permissions, int[] grantResults){
+    public void onRequestPermissionsResult(int permsRequestCode, String[] permissions, int[] grantResults) {
 
-        switch(permsRequestCode){
+        switch (permsRequestCode) {
 
             case permsRequestCODE:
 
-                boolean locationAccepted = grantResults[0]==PackageManager.PERMISSION_GRANTED;
-                if(locationAccepted){
-                     checkLocationSettings();
-                }else {
+                boolean locationAccepted = grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                if (locationAccepted) {
+                    checkLocationSettings();
+                } else {
 
                     Toast.makeText(this, "Permission Denied, You cannot access location data.", Toast.LENGTH_SHORT).show();
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -178,8 +231,8 @@ public class MainActivity extends AppCompatActivity {
                                         @Override
                                         public void onClick(DialogInterface dialog, int which) {
                                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                              //  requestPermissions(new String[]{ACCESS_COARSE_LOCATION },permsRequestCODE);
-                                                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{ACCESS_COARSE_LOCATION }, permsRequestCODE);
+                                                //  requestPermissions(new String[]{ACCESS_COARSE_LOCATION },permsRequestCODE);
+                                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{ACCESS_COARSE_LOCATION}, permsRequestCODE);
 
                                             }
                                         }
@@ -189,7 +242,6 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                 }
-
 
 
                 break;

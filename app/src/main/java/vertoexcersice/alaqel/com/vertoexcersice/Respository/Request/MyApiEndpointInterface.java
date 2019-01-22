@@ -13,7 +13,7 @@ import vertoexcersice.alaqel.com.vertoexcersice.Respository.Response.ResponseObj
 public interface MyApiEndpointInterface {
 
     @GET
-    Call<ResponseObject> getArticles(@Url String url);
+    Call<ResponseObject> getResponse(@Url String url);
 
 }
 

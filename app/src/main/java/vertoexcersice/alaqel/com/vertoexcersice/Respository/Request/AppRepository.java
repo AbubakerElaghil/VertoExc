@@ -47,7 +47,7 @@ public class AppRepository {
         try {
 
             Retrofit retrofit = new Retrofit.Builder()
-           //         .baseUrl(Server_URL)
+                  .baseUrl("https://en.wikipedia.org")
                     .client(client)
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();
@@ -62,7 +62,13 @@ public class AppRepository {
     public void getArticles(String lat, String longt, MutableLiveData<ResponseObject> articlesLists) {
           String url = "https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=10000&gscoord="+lat+"|-"+
                   longt+"&gslimit=50&format=json";
-        apiService.getArticles(url).enqueue(new ResponseCallBacks(articlesLists));
+        apiService.getResponse(url).enqueue(new ResponseCallBacks(articlesLists));
+    }
+
+    public void getPageImages(String pageId, MutableLiveData<ResponseObject> pageImageLists) {
+        String url = "https://en.wikipedia.org/w/api.php?action=query&prop=images&pageids="+pageId+"&format=json";
+        apiService.getResponse(url).enqueue(new ResponseCallBacks(pageImageLists));
+
     }
 
 

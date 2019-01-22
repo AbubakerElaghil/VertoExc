@@ -11,6 +11,7 @@ import vertoexcersice.alaqel.com.vertoexcersice.Respository.Response.ResponseObj
 public class MainViewModel extends AndroidViewModel {
 
     public MutableLiveData<ResponseObject> articlesLists = new MutableLiveData<>();
+    public MutableLiveData<ResponseObject> pageImageLists = new MutableLiveData<>();
 
     public AppRepository appRepository;
 
@@ -22,5 +23,9 @@ public class MainViewModel extends AndroidViewModel {
 
     public void getArticles(String Lat,String Longt) {
         appRepository.getArticles(Lat,Longt,articlesLists);
+    }
+
+    public void getPageImages(String pageId) {
+        appRepository.getPageImages(pageId,pageImageLists);
     }
 }
